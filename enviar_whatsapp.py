@@ -5,9 +5,13 @@ import time
 import urllib.parse
 import webbrowser
 from datetime import datetime
-
 import papermill as pm
 import pyautogui
+from dotenv import load_dotenv
+import ast
+
+# 🔐 Carrega variáveis do .env
+load_dotenv()
 
 # Desativar logs desnecessários
 logging.basicConfig(level=logging.ERROR)
@@ -17,16 +21,15 @@ notebook_path = 'credito_modalidade.ipynb'
 saida_dir = 'saida'
 metrics_path = os.path.join(saida_dir, 'whatsapp_metrics.json')
 
-# --- Contatos ---
-WHATSAPP_CONTATOS = [
-    {'nome': 'Otavio Augusto', 'numero': '+55...'},
-    {'nome': 'Gabriella', 'numero': '+55...'},
-]
+# --- Contatos via .env (como string JSON) ---
+WHATSAPP_CONTATOS = ast.literal_eval(os.getenv("WHATSAPP_CONTATOS"))
 
-SHAREPOINT_LINK = 'https://saudegov.sharepoint.com......'
+# --- Link do SharePoint via .env ---
+SHAREPOINT_LINK = os.getenv("SHAREPOINT_LINK")
 
-# --- Caminho das imagens ---
+# --- Caminho da imagem do botão (caso ainda queira usar fallback visual) ---
 CAMINHO_IMAGEM_BOTAO_ENVIAR = os.path.join('img', 'btn_enviar.png')
+
 
 # ---------------- FUNÇÕES BASE ----------------
 def obter_saudacao():
@@ -80,7 +83,7 @@ def criar_mensagem_detalhada(metricas, nome_contato):
                 msg += f'  -> {status}: {count} propostas\n'
         else:
             msg += '  -> Status não disponíveis.\n'
-        msg += f"  📍 {data['ufs_aprovadas_count']} UFs e {data['municipios_aprovados_count']} municípios com propostas aprovadas.\n"
+        msg += f"  📍 {data['ufs_aprovadas_count']} UFs e {data['municipios_aprovados_count']} municípios aprovados.\n"
         return msg
 
     msg = (
@@ -98,13 +101,12 @@ def criar_mensagem_detalhada(metricas, nome_contato):
     return msg
 
 
-# ---------------- FUNÇÃO DE ENVIO ----------------
+# ---------------- FUNÇÃO DE ENVIO (NOVA VERSÃO ESTÁVEL) ----------------
 def enviar_whatsapp_nao_interativo_automatico_visual():
-    print('📢 3/3: ENVIANDO WHATSAPP via PyAutoGUI (Reconhecimento Visual)...')
+    print('📢 3/3: ENVIANDO WHATSAPP via PyAutoGUI + Chrome (nova janela)...')
 
     pyautogui.FAILSAFE = True
     pyautogui.PAUSE = 1.0
-
     metricas = carregar_metricas()
 
     for idx, contato in enumerate(WHATSAPP_CONTATOS, 1):
@@ -114,40 +116,22 @@ def enviar_whatsapp_nao_interativo_automatico_visual():
         mensagem_codificada = urllib.parse.quote(mensagem_final)
         url = f'https://web.whatsapp.com/send?phone={numero}&text={mensagem_codificada}'
 
-        print(
-            f'\n📤 ({idx}/{len(WHATSAPP_CONTATOS)}) Enviando para {nome} ({numero})...'
-        )
-        webbrowser.open_new_tab(url)
+        print(f'\n📤 ({idx}/{len(WHATSAPP_CONTATOS)}) Enviando para {nome} ({numero})...')
 
-        # Aguarda o carregamento da página
+        # 🔹 Abre uma NOVA JANELA do Chrome (garante foco e isolamento)
+        os.system(f'powershell -Command "Start-Process chrome \'{url}\' -WindowStyle Maximized"')
         print('⏳ Aguardando carregamento do WhatsApp Web...')
         time.sleep(15)
 
-        # Aguarda o botão "Enviar" aparecer na tela (até 10 tentativas)
-        print('🔎 Procurando o botão de envio...')
-        send_btn = None
-        for _ in range(10):
-            send_btn = pyautogui.locateOnScreen(
-                CAMINHO_IMAGEM_BOTAO_ENVIAR, confidence=0.6, grayscale=True
-            )
-            if send_btn:
-                break
-            time.sleep(2)
+        # 🔹 Envia mensagem com ENTER
+        pyautogui.press('enter')
+        print(f'🚀 Mensagem enviada automaticamente para {nome}!')
 
-        if send_btn:
-            pyautogui.click(send_btn)
-            print(f'🚀 Mensagem enviada com sucesso para {nome}!')
-        else:
-            print(
-                f'⚠️ Botão de envio não encontrado para {nome}. Verifique a imagem de referência.'
-            )
-
-        # Espera antes do próximo envio
+        # 🔹 Aguarda envio e fecha janela
         time.sleep(5)
-
-        # Fecha aba atual para evitar múltiplas abertas
-        pyautogui.hotkey('ctrl', 'w')
-        time.sleep(2)
+        pyautogui.hotkey('alt', 'f4')
+        print(f'🪟 Janela de {nome} fechada.\n')
+        time.sleep(5)
 
     print('\n🎉 PROCESSO CONCLUÍDO COM SUCESSO!')
 
