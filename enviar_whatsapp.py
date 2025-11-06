@@ -3,48 +3,45 @@ import logging
 import os
 import time
 import urllib.parse
-import webbrowser
-from datetime import datetime
-import papermill as pm
 import pyautogui
+import papermill as pm
 from dotenv import load_dotenv
 import ast
+from datetime import datetime
+import subprocess
 
-# 🔐 Carrega variáveis do .env
+# ==============================================================
+# CONFIGURAÇÕES GERAIS
+# ==============================================================
 load_dotenv()
-
-# Desativar logs desnecessários
 logging.basicConfig(level=logging.ERROR)
 
-# --- Caminhos principais ---
-notebook_path = 'credito_modalidade.ipynb'
-saida_dir = 'saida'
-metrics_path = os.path.join(saida_dir, 'whatsapp_metrics.json')
-
-# --- Contatos via .env (como string JSON) ---
-WHATSAPP_CONTATOS = ast.literal_eval(os.getenv("WHATSAPP_CONTATOS"))
-
-# --- Link do SharePoint via .env ---
-SHAREPOINT_LINK = os.getenv("SHAREPOINT_LINK")
-
-# --- Caminho da imagem do botão (caso ainda queira usar fallback visual) ---
+NOTEBOOK_PATH = 'credito_modalidade.ipynb'
+SAIDA_DIR = 'saida'
+METRICS_PATH = os.path.join(SAIDA_DIR, 'whatsapp_metrics.json')
 CAMINHO_IMAGEM_BOTAO_ENVIAR = os.path.join('img', 'btn_enviar.png')
 
+WHATSAPP_CONTATOS = ast.literal_eval(os.getenv("WHATSAPP_CONTATOS"))
+SHAREPOINT_LINK = os.getenv("SHAREPOINT_LINK")
 
-# ---------------- FUNÇÕES BASE ----------------
+
+# ==============================================================
+# FUNÇÕES AUXILIARES
+# ==============================================================
 def obter_saudacao():
     hora = datetime.now().hour
     if 5 <= hora < 12:
         return 'BOM DIA'
     elif 12 <= hora < 18:
         return 'BOA TARDE'
-    return 'BOA NOITE'
+    else:
+        return 'BOA NOITE'
 
 
 def executar_notebook():
     print('🚀 1/3: Executando notebook...')
     try:
-        pm.execute_notebook(notebook_path, notebook_path)
+        pm.execute_notebook(NOTEBOOK_PATH, NOTEBOOK_PATH)
         print('✅ Notebook executado e métricas geradas.')
     except Exception as e:
         raise RuntimeError(f'Erro ao executar notebook: {e}')
@@ -52,61 +49,53 @@ def executar_notebook():
 
 def carregar_metricas():
     print('📊 2/3: Lendo métricas...')
-    if not os.path.exists(metrics_path):
-        print('⚠️ Métricas não encontradas. Usando dados N/A.')
+    if not os.path.exists(METRICS_PATH):
+        print('⚠️ Métricas não encontradas. Usando valores padrão.')
         return {
             'data': datetime.today().strftime('%d/%m/%Y'),
-            'credito_financeiro': {
-                'nome': 'Crédito Financeiro',
-                'status_propostas': {},
-                'ufs_aprovadas_count': 'N/A',
-                'municipios_aprovados_count': 'N/A',
-            },
-            'modalidade_1': {
-                'nome': 'Modalidade 1',
-                'status_propostas': {},
-                'ufs_aprovadas_count': 'N/A',
-                'municipios_aprovados_count': 'N/A',
-            },
+            'credito_financeiro': {'nome': 'Crédito Financeiro', 'status_propostas': {}, 'ufs_aprovadas_count': 'N/A', 'municipios_aprovados_count': 'N/A'},
+            'modalidade_1': {'nome': 'Modalidade 1', 'status_propostas': {}, 'ufs_aprovadas_count': 'N/A', 'municipios_aprovados_count': 'N/A'}
         }
-    with open(metrics_path, 'r', encoding='utf-8') as f:
+    with open(METRICS_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
 def criar_mensagem_detalhada(metricas, nome_contato):
     saudacao = obter_saudacao()
 
-    def formatar_modalidade(data):
-        msg = f"  *Modalidade: {data['nome']}*\n"
-        if data['status_propostas']:
-            for status, count in data['status_propostas'].items():
-                msg += f'  -> {status}: {count} propostas\n'
+    def formatar_modalidade(mod):
+        msg = f"*Modalidade: {mod['nome']}*\n"
+        if mod['status_propostas']:
+            for status, count in mod['status_propostas'].items():
+                msg += f"-> {status}: {count} propostas\n"
         else:
-            msg += '  -> Status não disponíveis.\n'
-        msg += f"  📍 {data['ufs_aprovadas_count']} UFs e {data['municipios_aprovados_count']} municípios aprovados.\n"
+            msg += "-> Nenhum dado disponível.\n"
+        msg += f"📍 {mod['ufs_aprovadas_count']} UFs e {mod['municipios_aprovados_count']} municípios aprovados.\n"
         return msg
 
-    msg = (
-        f'{saudacao}, {nome_contato.upper()}!\n\n'
+    return (
+        f"{saudacao}, {nome_contato.upper()}!\n\n"
         f"Segue o Relatório Diário - {metricas['data']}.\n\n"
-        f'**RESUMO DE MONITORAMENTO POR MODALIDADE**:\n'
-        f'----------------------------------------------------\n'
+        "*RESUMO DE MONITORAMENTO POR MODALIDADE:*\n"
+        "--------------------------------------\n"
         f"{formatar_modalidade(metricas['credito_financeiro'])}"
-        f'----------------------------------------------------\n'
+        "--------------------------------------\n"
         f"{formatar_modalidade(metricas['modalidade_1'])}"
-        f'----------------------------------------------------\n'
-        f'📎 Acesso ao relatório completo:\n{SHAREPOINT_LINK}\n\n'
-        'Atenciosamente,\nOtavio Augusto - BOT'
+        "--------------------------------------\n"
+        f"📎 Acesso ao relatório completo:\n{SHAREPOINT_LINK}\n\n"
+        "Atenciosamente,\nOtavio Augusto - BOT 🤖"
     )
-    return msg
 
 
-# ---------------- FUNÇÃO DE ENVIO (NOVA VERSÃO ESTÁVEL) ----------------
+# ==============================================================
+# FUNÇÃO PRINCIPAL DE ENVIO (COM JANELA MAXIMIZADA)
+# ==============================================================
 def enviar_whatsapp_nao_interativo_automatico_visual():
-    print('📢 3/3: ENVIANDO WHATSAPP via PyAutoGUI + Chrome (nova janela)...')
+    print('📢 3/3: ENVIANDO WHATSAPP via PyAutoGUI + Chrome (janela maximizada)...')
 
     pyautogui.FAILSAFE = True
-    pyautogui.PAUSE = 1.0
+    pyautogui.PAUSE = 0.7
+
     metricas = carregar_metricas()
 
     for idx, contato in enumerate(WHATSAPP_CONTATOS, 1):
@@ -118,30 +107,69 @@ def enviar_whatsapp_nao_interativo_automatico_visual():
 
         print(f'\n📤 ({idx}/{len(WHATSAPP_CONTATOS)}) Enviando para {nome} ({numero})...')
 
-        # 🔹 Abre uma NOVA JANELA do Chrome (garante foco e isolamento)
-        os.system(f'powershell -Command "Start-Process chrome \'{url}\' -WindowStyle Maximized"')
-        print('⏳ Aguardando carregamento do WhatsApp Web...')
-        time.sleep(15)
+        # ✅ Abre Chrome em nova janela **maximizada**
+        cmd = f'powershell -Command "Start-Process chrome \'{url}\' -WindowStyle Maximized"'
+        subprocess.Popen(cmd, shell=True)
 
-        # 🔹 Envia mensagem com ENTER
-        pyautogui.press('enter')
-        print(f'🚀 Mensagem enviada automaticamente para {nome}!')
+        print('⏳ Aguardando carregamento do WhatsApp Web (12s)...')
+        time.sleep(12)
 
-        # 🔹 Aguarda envio e fecha janela
-        time.sleep(5)
+        # 🔹 Garante foco e força renderização visual
+        pyautogui.hotkey('alt', 'tab')
+        time.sleep(1)
+
+        screen_w, screen_h = pyautogui.size()
+        pyautogui.moveTo(screen_w // 2, screen_h // 2, duration=0.5)
+        pyautogui.moveRel(80, 0, duration=0.3)
+        pyautogui.moveRel(-160, 0, duration=0.3)
+        pyautogui.scroll(-400)
+        time.sleep(1)
+
+        # 🔹 Localiza botão "Enviar" por imagem
+        print("🔎 Procurando o botão 'Enviar' (até 30s)...")
+        send_center = None
+        start_time = time.time()
+
+        while time.time() - start_time < 30:
+            try:
+                send_center = (
+                    pyautogui.locateCenterOnScreen(CAMINHO_IMAGEM_BOTAO_ENVIAR, confidence=0.9, grayscale=True)
+                    or pyautogui.locateCenterOnScreen(CAMINHO_IMAGEM_BOTAO_ENVIAR, confidence=0.9, grayscale=True)
+                )
+                if send_center:
+                    break
+            except Exception as e:
+                print(f'(debug locateOnScreen) erro: {e}')
+            time.sleep(1)
+
+        if send_center:
+            x, y = send_center
+            print(f'🟢 Botão encontrado em ({x}, {y}). Clicando...')
+            pyautogui.moveTo(x, y, duration=0.3)
+            pyautogui.click()
+            print(f'✅ Mensagem enviada para {nome}.')
+        else:
+            print('⚠️ Botão não encontrado. Usando fallback (ENTER)...')
+            pyautogui.press('enter')
+            print(f'✅ Mensagem enviada para {nome} (via ENTER).')
+
+        # 🔹 Fecha aba
+        time.sleep(4)
         pyautogui.hotkey('alt', 'f4')
-        print(f'🪟 Janela de {nome} fechada.\n')
-        time.sleep(5)
+        print(f'🪟 Aba de {nome} fechada.')
+        time.sleep(3)
 
-    print('\n🎉 PROCESSO CONCLUÍDO COM SUCESSO!')
+    print('\n🎉 PROCESSO CONCLUÍDO!')
 
 
-# ---------------- MAIN ----------------
+# ==============================================================
+# EXECUÇÃO PRINCIPAL
+# ==============================================================
 if __name__ == '__main__':
     try:
-        print('🤖 INICIANDO ORQUESTRAÇÃO DE ENVIO AUTOMÁTICO WHATSAPP')
-        print('=' * 50)
+        print("🤖 INICIANDO ORQUESTRAÇÃO DE ENVIO AUTOMÁTICO WHATSAPP")
+        print("=" * 50)
         executar_notebook()
         enviar_whatsapp_nao_interativo_automatico_visual()
     except Exception as e:
-        print(f'❌ PROCESSO INTERROMPIDO: {e}')
+        print(f"❌ PROCESSO INTERROMPIDO: {e}")

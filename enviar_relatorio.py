@@ -1,5 +1,6 @@
 import os
 import shutil
+import json
 from datetime import datetime
 import papermill as pm
 import win32com.client
@@ -15,6 +16,7 @@ SAIDA_DIR = os.getenv("SAIDA_DIR")
 DESTINO_PUBLICO = os.getenv("DESTINO_PUBLICO")
 EMAIL_DESTINATARIOS = os.getenv("EMAIL_DESTINATARIOS")
 ASSINATURA_IMG = os.path.abspath(os.getenv("ASSINATURA_IMG"))
+SHAREPOINT_LINK = os.getenv("SHAREPOINT_LINK")
 
 # ======================================================
 # CONFIGURAÇÕES DE ARQUIVO
@@ -22,10 +24,30 @@ ASSINATURA_IMG = os.path.abspath(os.getenv("ASSINATURA_IMG"))
 ARQUIVO_NOME = f"{datetime.today().strftime('%Y%m%d')}_MONITORAMENTO DE COMPONENTE.xlsx"
 RELATORIO_PATH = os.path.join(SAIDA_DIR, ARQUIVO_NOME)
 DESTINO_FINAL = os.path.join(DESTINO_PUBLICO, ARQUIVO_NOME)
+METRICAS_PATH = os.path.join(SAIDA_DIR, 'whatsapp_metrics.json')
 
 # ======================================================
 # FUNÇÕES
 # ======================================================
+
+def formatar_modalidade(modalidade):
+    nome = modalidade['nome']
+    status = modalidade['status_propostas']
+    ufs = modalidade['ufs_aprovadas_count']
+    municipios = modalidade['municipios_aprovados_count']
+
+    texto = (
+        f"<strong>{nome}</strong><br>"
+        f"Aprovado: {status.get('Aprovado', 0)}<br>"
+        f"Em Diligência: {status.get('Em Diligência', 0)}<br>"
+        f"Em Preenchimento: {status.get('Em Preenchimento', 0)}<br>"
+        f"Aguardando Validação do Gestor: {status.get('Aguardando Validação do Gestor', 0)}<br>"
+        f"Em Análise: {status.get('Em Análise', 0)}<br>"
+        f"Enviado para Análise: {status.get('Enviado para Análise', 0)}<br>"
+        f"UFs aprovadas: {ufs}<br>"
+        f"Municípios aprovados: {municipios}<br>"
+    )
+    return texto
 
 def executar_notebook():
     print('🚀 Executando notebook...')
@@ -51,6 +73,22 @@ def enviar_email():
         return
 
     try:
+        with open(METRICAS_PATH, encoding='utf-8') as f:
+            metricas = json.load(f)
+    except Exception as e:
+        print(f'❌ Erro ao carregar métricas: {e}')
+        return
+
+    resumo_html = (
+        f"<p><strong>Resumo por modalidade:</strong></p>"
+        f"<ul>"
+        f"<li>{formatar_modalidade(metricas['credito_financeiro'])}</li><br>"
+        f"<li>{formatar_modalidade(metricas['modalidade_1'])}</li>"
+        f"</ul>"
+        f"<p>📎 Para mais detalhes, acesse o relatório completo em anexo<br>"
+    )
+
+    try:
         outlook = win32com.client.Dispatch('Outlook.Application')
         email = outlook.CreateItem(0)
 
@@ -58,8 +96,8 @@ def enviar_email():
         email.Subject = f"Relatório Diário - {datetime.today().strftime('%d/%m/%Y')}"
         email.HTMLBody = (
             '<p>Prezados,</p>'
-            '<p>Segue em anexo o relatório diário gerado automaticamente.'
-            'Temos novidades... agora com CNES nas propostas que tinham apenas CNPJ.</p>'
+            '<p>Segue em anexo o relatório diário atualizado com os dados mais recentes.</p>'
+            + resumo_html +
             '<p>Atenciosamente,<br>Otavio Augusto - BOT</p>'
             '<img src="cid:assinatura_img">'
         )
@@ -73,7 +111,7 @@ def enviar_email():
         )
 
         email.Send()
-        print('📤 E-mail enviado com sucesso com imagem de assinatura.')
+        print('📤 E-mail enviado com sucesso com resumo humanizado.')
     except Exception as e:
         print(f'❌ Erro ao enviar e-mail: {e}')
 
