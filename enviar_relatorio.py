@@ -35,10 +35,12 @@ def formatar_modalidade(modalidade):
     status = modalidade['status_propostas']
     ufs = modalidade['ufs_aprovadas_count']
     municipios = modalidade['municipios_aprovados_count']
+    estabelecimento = modalidade['entidade_aprovadas']
 
     texto = (
         f"<strong>{nome}</strong><br>"
         f"Aprovado: {status.get('Aprovado', 0)}<br>"
+        f"PRE-Aprovado: {status.get('PRE-Aprovado', 0)}<br>"
         f"Em Diligência: {status.get('Em Diligência', 0)}<br>"
         f"Em Preenchimento: {status.get('Em Preenchimento', 0)}<br>"
         f"Aguardando Validação do Gestor: {status.get('Aguardando Validação do Gestor', 0)}<br>"
@@ -46,6 +48,7 @@ def formatar_modalidade(modalidade):
         f"Enviado para Análise: {status.get('Enviado para Análise', 0)}<br>"
         f"UFs aprovadas: {ufs}<br>"
         f"Municípios aprovados: {municipios}<br>"
+        f"Estabelecimento aprovados: {estabelecimento}<br>"
     )
     return texto
 
@@ -97,6 +100,7 @@ def enviar_email():
         email.HTMLBody = (
             '<p>Prezados,</p>'
             '<p>Segue em anexo o relatório diário atualizado com os dados mais recentes.</p>'
+            '<p>NOVIDADES!: modalidade 1 agora com solicitações PRÉ APROVADAS (lista disponibilizada pelo sr. Marcus)'
             + resumo_html +
             '<p>Atenciosamente,<br>Otavio Augusto - BOT</p>'
             '<img src="cid:assinatura_img">'

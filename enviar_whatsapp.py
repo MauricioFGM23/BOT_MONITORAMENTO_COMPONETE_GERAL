@@ -76,11 +76,11 @@ def criar_mensagem_detalhada(metricas, nome_contato):
     return (
         f"{saudacao}, {nome_contato.upper()}!\n\n"
         f"Segue o Relatório Diário - {metricas['data']}.\n\n"
+        
         "*RESUMO DE MONITORAMENTO POR MODALIDADE:*\n"
         "--------------------------------------\n"
         f"{formatar_modalidade(metricas['credito_financeiro'])}"
         "--------------------------------------\n"
-        f"{formatar_modalidade(metricas['modalidade_1'])}"
         "--------------------------------------\n"
         f"📎 Acesso ao relatório completo:\n{SHAREPOINT_LINK}\n\n"
         "Atenciosamente,\nOtavio Augusto - BOT 🤖"
