@@ -100,7 +100,7 @@ def enviar_email():
         email.HTMLBody = (
             '<p>Prezados,</p>'
             '<p>Segue em anexo o relatório diário atualizado com os dados mais recentes.</p>'
-            '<p>NOVIDADES!: modalidade 1 agora com solicitações PRÉ APROVADAS (lista disponibilizada pelo sr. Marcus)'
+            '<p>NOVIDADES!: "Modalidade 1" agora com solicitações PRÉ APROVADAS (lista disponibilizada pelo sr. Marcus)'
             + resumo_html +
             '<p>Atenciosamente,<br>Otavio Augusto - BOT</p>'
             '<img src="cid:assinatura_img">'
